@@ -16,6 +16,7 @@
 //macros to make code more readable
 #define Meow_VERSION "0.0.1"
 #define CTRL_KEY(k) ((k) & 0x1f)
+#define BACKSPACE 127
 
 enum editorKey {
     ARROW_LEFT = 1000,
@@ -32,6 +33,7 @@ typedef struct erow{
 struct editorConfig{
     int cx, cy;
     int rowoff;
+    int coloff;
     int screenrows;
     int screencols;
     int numrows;
@@ -42,6 +44,12 @@ struct editorConfig E;
 
 //Terminal
 //function to handle errors
+void freeEditor() {
+    for (int i = 0; i < E.numrows; i++) {
+        free(E.row[i].chars);
+    }
+    free(E.row);
+}
 void die(const char *s){
     write(STDOUT_FILENO, "\x1b[2J", 4);
     write(STDOUT_FILENO, "\x1b[H", 3);
@@ -130,7 +138,6 @@ int getWindowSize(int *rows, int *cols){
 }
 
 //Row operations
-
 void editorAppendRow(char *s, size_t len){
     E.row = realloc(E.row, sizeof(erow) * (E.numrows + 1));
 
@@ -139,8 +146,21 @@ void editorAppendRow(char *s, size_t len){
     E.row[at].chars = malloc(len + 1);
     memcpy(E.row[at].chars, s, len);
     E.row[at].chars[len] = '\0';
-    E.numrows = 1;
+    E.numrows++;
 }
+
+void editorInsertChar(int c){
+    if (E.cy == E.numrows) {
+        editorAppendRow("", 0);
+    }
+
+    erow *row = &E.row[E.cy];
+    row->chars = realloc(row->chars, row->size + 2); // +2 for new char and null terminator
+    memmove(&row->chars[E.cx + 1], &row->chars[E.cx], row->size - E.cx + 1);
+    row->size++;
+    row->chars[E.cx] = c;
+    E.cx++;
+}    
 
 //File I/O
 
@@ -154,10 +174,26 @@ void editorOpen(char *filename){
     while((linelen = getline(&line, &linecap, fp)) != -1){
         while(linelen > 0 && (line[linelen - 1] == '\n' || line[linelen - 1] == '\r')){
             linelen--;
+        }
+        if (linelen > 0) {
             editorAppendRow(line, linelen);
         }
     }
     free(line);
+    fclose(fp);
+}
+
+void editorSave(char *filename) {
+    FILE *fp = fopen(filename, "w");
+    if (!fp) {
+        die("fopen");
+    }
+
+    for (int i = 0; i < E.numrows; i++) {
+        fwrite(E.row[i].chars, 1, E.row[i].size, fp);
+        fputc('\n', fp); // Add newline after each row
+    }
+
     fclose(fp);
 }
 
@@ -183,23 +219,41 @@ void abFree(struct abuf *ab){
 
 //Input
 
+void editorDeleteChar() {
+    if (E.cy == E.numrows) return; // No rows to delete from
+
+    erow *row = &E.row[E.cy];
+    if (E.cx > 0) {
+        // Shift characters to the left
+        memmove(&row->chars[E.cx - 1], &row->chars[E.cx], row->size - E.cx + 1);
+        row->size--;
+        E.cx--; // Move cursor left
+    } else if (E.cy > 0) {
+        // If at the beginning of the row, merge with the previous row
+        E.cx = E.row[E.cy - 1].size; // Move cursor to the end of the previous row
+        editorAppendRow(row->chars, row->size); // Append current row to previous
+        free(row->chars); // Free current row's memory
+        memmove(&E.row[E.cy], &E.row[E.cy + 1], sizeof(erow) * (E.numrows - E.cy - 1)); // Shift rows up
+        E.numrows--; // Decrease row count
+    }
+}
 void editorMoveCursor(int key){
     switch (key) {
     case ARROW_LEFT:
-        if (E.cx > 0)E.cx--;
+        if (E.cx != 0) E.cx--;
         break;
     case ARROW_RIGHT:
-        if(E.cx < E.screencols - 1) E.cx++;
+        if (E.cy < E.numrows && E.cx < E.row[E.cy].size) E.cx++;
         break;
     case ARROW_UP:
-        if (E.cy > 0) E.cy--;
+        if (E.cy != 0) E.cy--;
         break;
     case ARROW_DOWN:
-        if (E.cy < E.screenrows - 1) E.cy++;
+        if (E.cy < E.numrows) E.cy++;
         break;
     }
-
 }
+
 //function to process keypresses
 void editorProcessKeypress(){
     int c = editorReadKey();
@@ -209,21 +263,43 @@ void editorProcessKeypress(){
             write(STDOUT_FILENO, "\x1b[H", 3);
             exit(0);
             break;
-        
+        case CTRL_KEY('s'):
+            editorSave("Output.txt");
+            break;
+
         case ARROW_UP:
         case ARROW_DOWN:
         case ARROW_LEFT:
         case ARROW_RIGHT:
             editorMoveCursor(c);
             break;
+        case BACKSPACE:
+            editorDeleteChar();
+            break;
+        
+        default:
+        if(isprint(c)) {
+            editorInsertChar(c);
+        }
+        break;
     }
 }
 
 //Output
+
+void editorScroll(){
+    if(E.cy < E.rowoff){
+        E.rowoff = E.cy;
+    }
+    if(E.cy >= E.rowoff + E.screenrows){
+        E.rowoff = E.cy - E.screenrows + 1;
+    }
+}
 //function to draw the rows
 void editorDrawRows(struct abuf *ab) {
     for (int y = 0; y < E.screenrows; y++) {
-        if(y >= E.numrows){
+        int filerow = y + E.rowoff;
+        if(filerow >= E.numrows){
             if (E.numrows == 0 && y == E.screenrows / 3) {
                 char welcome[80];
                 int welcomelen = snprintf(welcome, sizeof(welcome), "Meow Editor -- version %s", Meow_VERSION);
@@ -239,9 +315,10 @@ void editorDrawRows(struct abuf *ab) {
                 abAppend(ab, "~", 1);
             }
         } else {
-            int len = E.row[y].size;
+            int len = E.row[filerow].size - E.coloff;
+            if(len < 0) len = 0;
             if (len > E.screencols) len = E.screencols;
-            abAppend(ab, E.row[y].chars, len);
+            abAppend(ab, E.row[filerow].chars, len);
         }
 
         abAppend(ab, "\x1b[K", 3); // clear line from cursor
@@ -253,16 +330,17 @@ void editorDrawRows(struct abuf *ab) {
 
 //function to refresh the screen
 void editorRefreshScreen(){
+    editorScroll();
+
     struct abuf ab = ABUF_INIT;
 
     abAppend(&ab, "\x1b[?25l", 6);
-    //abAppend(&ab, "\x1b[2J", 4);
     abAppend(&ab, "\x1b[H", 3);
 
     editorDrawRows(&ab);
 
     char buf[32];
-    snprintf(buf, sizeof(buf), "\x1b[%d;%dH", E.cy + 1, E.cx + 1);
+    snprintf(buf, sizeof(buf), "\x1b[%d;%dH", (E.cy - E.rowoff) + 1, E.cx + 1);
     abAppend(&ab, buf, strlen(buf));
 
     //abAppend(&ab, "\x1b[H", 3);
@@ -278,6 +356,7 @@ void initEditor(){
     E.cx = 0;
     E.cy = 0;
     E.rowoff = 0;
+    E.coloff = 0;
     E.numrows = 0;
     E.row = NULL;
 
@@ -286,6 +365,7 @@ void initEditor(){
 int main(int argc, char *argv[]) {
     enableRawMode();
     initEditor();
+    atexit(freeEditor);
 
     if(argc>=2){
         editorOpen(argv[1]);
