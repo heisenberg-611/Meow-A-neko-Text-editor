@@ -3,18 +3,22 @@
 #include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <sys/ioctl.h>
 #include <termios.h>
 #include <unistd.h>
 
 //macros to make code more readable
 #define CTRL_KEY(k) ((k) & 0x1f)
 
-//data structure to store terminal attributes
+//data structure
 struct editorConfig{
+    int screenrows;
+    int screencols;
     struct termios orig_termios;
 };
 struct editorConfig E;
 
+//Terminal
 //function to handle errors
 void die(const char *s){
     write(STDOUT_FILENO, "\x1b[2J", 4);
@@ -53,6 +57,38 @@ char editorReadKey(){
     return c;
 }
 
+int getCursorPosition(int *rows, int *cols) {
+    if(write(STDOUT_FILENO, "\x1b[6n", 4) != 4) return -1;
+
+    printf("r\n");
+    char c;
+    while(read(STDIN_FILENO, &c, 1) == 1){
+        if(iscntrl(c)){
+            printf("%d\r\n", c);
+        } else {
+            printf("%d ('%c')\r\n", c, c);
+        }
+    }
+
+    editorReadKey();
+    return -1;
+}
+
+//function to get the size of the terminal
+int getWindowSize(int *rows, int *cols){
+    struct winsize ws;
+    if(1 || ioctl(STDOUT_FILENO, TIOCGWINSZ, &ws) == -1 || ws.ws_col == 0){
+        if(write(STDOUT_FILENO, "\x1b[999C\x1b[999B", 12) != 12) return -1;
+        editorReadKey();
+        return -1;
+    } else {
+        *cols = ws.ws_col;
+        *rows = ws.ws_row;
+        return 0;
+    }
+}
+
+//Input
 //function to process keypresses
 void editorProcessKeypress(){
     char c = editorReadKey();
@@ -65,9 +101,11 @@ void editorProcessKeypress(){
     }
 }
 
+//Output
+//function to draw the rows
 void editorDrawRows(){
     int y;
-    for(y = 0; y < 24; y++){
+    for(y = 0; y < E.screenrows; y++){
         write(STDOUT_FILENO, "~\r\n", 3);
     }
 }
@@ -81,7 +119,11 @@ void editorRefreshScreen(){
     write(STDOUT_FILENO, "\x1b[H", 3);
 }
 
-//main function
+//initialization
+
+void initEditor(){
+    if(getWindowSize(&E.screenrows, &E.screencols) == -1) die("getWindowSize");
+}
 int main() {
     enableRawMode();
 
