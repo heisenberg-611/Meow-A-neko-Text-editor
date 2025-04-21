@@ -14,7 +14,7 @@
 #include <unistd.h>
 
 //macros to make code more readable
-#define Meow_VERSION "0.0.1"
+#define Meow_VERSION "3.1416"
 #define CTRL_KEY(k) ((k) & 0x1f)
 #define BACKSPACE 127
 
@@ -302,7 +302,7 @@ void editorDrawRows(struct abuf *ab) {
         if(filerow >= E.numrows){
             if (E.numrows == 0 && y == E.screenrows / 3) {
                 char welcome[80];
-                int welcomelen = snprintf(welcome, sizeof(welcome), "Meow Editor -- version %s", Meow_VERSION);
+                int welcomelen = snprintf(welcome, sizeof(welcome), "Meow Viewer -- version %s", Meow_VERSION);
                 if (welcomelen > E.screencols) welcomelen = E.screencols;
                 int padding = (E.screencols - welcomelen) / 2;
                 if (padding) {
@@ -336,6 +336,9 @@ void editorRefreshScreen(){
 
     abAppend(&ab, "\x1b[?25l", 6);
     abAppend(&ab, "\x1b[H", 3);
+
+    abAppend(&ab, "\x1b[40m", 5);
+    abAppend(&ab, "\x1b[32m", 5);
 
     editorDrawRows(&ab);
 
