@@ -3,6 +3,8 @@ A simple terminal-based text editor written in C.
 
 ![Screenshot of editor](https://i.imgur.com/1zvEtO4.jpeg)
 
+Click to watch the video on YouTube:
+
 [![Watch the video](https://img.youtube.com/vi/qPfo2XE8Zwk/0.jpg)](https://youtu.be/qPfo2XE8Zwk)
 
 
