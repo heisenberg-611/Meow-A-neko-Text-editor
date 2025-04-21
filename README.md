@@ -31,7 +31,7 @@ Use `gcc` to compile the project:
 
 ```bash
 gcc -o meow meow.c
-
+```
 ## How to Run
 ./meow
 
