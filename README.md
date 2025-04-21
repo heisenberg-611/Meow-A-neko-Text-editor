@@ -33,7 +33,9 @@ Use `gcc` to compile the project:
 gcc -o meow meow.c
 ```
 ## How to Run
+```bash
 ./meow
+```
 
 Key bindings:
 - Arrow keys: Navigate
