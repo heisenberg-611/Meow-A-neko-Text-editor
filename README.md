@@ -9,7 +9,7 @@ Current version: **3.1416**
 - Navigate using arrow keys
 - Insert characters at cursor position
 - Delete characters using `Backspace`
-- Save changes to a file (`CTRL + S`)
+- Save a file named as Output.txt(`CTRL + S`)
 - Exit the editor (`CTRL + Q`)
 - Handles raw terminal input (canonical mode off)
 - Scroll through large files (vertical scrolling)
