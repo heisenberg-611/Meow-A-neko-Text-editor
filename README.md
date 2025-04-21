@@ -1,7 +1,7 @@
 # Meow Editor
 A simple terminal-based text editor written in C.
 
-![Screenshot of editor]('/Users/dhrubojyoti/Pictures/Screenshots/Screenshot 2025-04-21 at 13.39.58.jpg')
+![Screenshot of editor](https://imgur.com/a/ZErigSs)
 
 [![Watch the video](https://img.youtube.com/vi/qPfo2XE8Zwk/0.jpg)](https://youtu.be/qPfo2XE8Zwk)
 
