@@ -1,6 +1,12 @@
-# Meow Editor 🐾
+# Meow Editor
+A simple terminal-based text editor written in C.
 
-A simple terminal-based text editor written in C.  
+![Screenshot of editor]('/Users/dhrubojyoti/Pictures/Screenshots/Screenshot 2025-04-21 at 13.39.58.jpg')
+
+[![Watch the video](https://img.youtube.com/vi/qPfo2XE8Zwk/0.jpg)](https://youtu.be/qPfo2XE8Zwk)
+
+
+## Version History
 Current version: **3.1416**
 
 ## Features (Implemented)
