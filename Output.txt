@@ -2,4 +2,4 @@ Hello BUCC
 This is a simple text editor
 You can edit and save text here
 You can also open a file of any extention(TEXT files)
-Thank you !!
+Thank you !
